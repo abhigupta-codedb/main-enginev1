@@ -1,7 +1,15 @@
+import dotenv from 'dotenv';
+// Load environment variables FIRST
+dotenv.config();
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import session from 'express-session';
+import path from 'path';
+import passport from './config/passport';
+import authRoutes, { requireAuth } from './routes/auth';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,12 +21,31 @@ app.use(morgan('combined')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'fallback-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS in production
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Routes
 app.get('/', (req: Request, res: Response) => {
   res.json({
     message: 'Hello World! Express TypeScript Server is running!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false
   });
 });
 
@@ -30,6 +57,14 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Login page
+app.get('/login', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../public/login.html'));
+});
+
+// Authentication routes
+app.use('/auth', authRoutes);
+
 // API routes example
 app.get('/api/users', (req: Request, res: Response) => {
   // Mock data - replace with actual database queries
@@ -38,6 +73,15 @@ app.get('/api/users', (req: Request, res: Response) => {
     { id: 2, name: 'Jane Smith', email: 'jane@example.com' }
   ];
   res.json(users);
+});
+
+// Protected route example - requires authentication
+app.get('/api/protected', requireAuth, (req: Request, res: Response) => {
+  res.json({
+    message: 'This is a protected route',
+    user: req.user,
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.post('/api/users', (req: Request, res: Response) => {
