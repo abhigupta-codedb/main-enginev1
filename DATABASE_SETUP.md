@@ -11,11 +11,13 @@
 ### Option 1: Using psql Command Line
 
 1. **Connect to PostgreSQL:**
+
 ```bash
 psql -U postgres -h localhost
 ```
 
 2. **Create Database:**
+
 ```sql
 CREATE DATABASE main_enginev1;
 CREATE USER main_user WITH ENCRYPTED PASSWORD 'your_password';
@@ -23,11 +25,13 @@ GRANT ALL PRIVILEGES ON DATABASE main_enginev1 TO main_user;
 ```
 
 3. **Connect to your database:**
+
 ```bash
 psql -U main_user -d main_enginev1 -h localhost
 ```
 
 4. **Run the schema:**
+
 ```bash
 psql -U main_user -d main_enginev1 -h localhost -f database/schema.sql
 ```
@@ -35,6 +39,7 @@ psql -U main_user -d main_enginev1 -h localhost -f database/schema.sql
 ### Option 2: Using Docker
 
 1. **Start PostgreSQL with Docker:**
+
 ```bash
 docker run --name main-engine-postgres \
   -e POSTGRES_DB=main_enginev1 \
@@ -45,6 +50,7 @@ docker run --name main-engine-postgres \
 ```
 
 2. **Run schema setup:**
+
 ```bash
 docker exec -i main-engine-postgres psql -U main_user -d main_enginev1 < database/schema.sql
 ```
@@ -86,8 +92,9 @@ The application creates these tables:
 - **session**: Stores Express sessions
 
 ### Users Table Structure:
+
 ```sql
-id VARCHAR(255) PRIMARY KEY,      -- Google User ID  
+id VARCHAR(255) PRIMARY KEY,      -- Google User ID
 email VARCHAR(255) UNIQUE,        -- User email from Google
 name VARCHAR(255),                -- Display name from Google
 picture TEXT,                     -- Profile picture URL
@@ -112,3 +119,10 @@ SELECT COUNT(*) FROM session WHERE expire > NOW();
 -- Clear all sessions (logout all users)
 DELETE FROM session;
 ```
+
+<!-- {
+  "web": {
+     "832740265004-69mf2h0nbs4toa3ve4iskam452as87d8.apps.googleusercontent.com",
+    "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"
+  }
+} -->
