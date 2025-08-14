@@ -119,10 +119,3 @@ SELECT COUNT(*) FROM session WHERE expire > NOW();
 -- Clear all sessions (logout all users)
 DELETE FROM session;
 ```
-
-<!-- {
-  "web": {
-     "832740265004-69mf2h0nbs4toa3ve4iskam452as87d8.apps.googleusercontent.com",
-    "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"
-  }
-} -->
