@@ -44,7 +44,7 @@ psql -U main_user -d main_enginev1 -h localhost -f database/schema.sql
 docker run --name main-engine-postgres \
   -e POSTGRES_DB=main_enginev1 \
   -e POSTGRES_USER=main_user \
-  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_PASSWORD=password \
   -p 5432:5432 \
   -d postgres:15
 ```
@@ -68,12 +68,12 @@ Update your `.env` file with your database credentials:
 
 ```bash
 # Database Configuration
-DATABASE_URL=postgresql://main_user:your_password@localhost:5432/main_enginev1
+DATABASE_URL=postgresql://main_user:password@localhost:5432/main_enginev1
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=main_enginev1
 DB_USER=main_user
-DB_PASSWORD=your_password
+DB_PASSWORD=password
 ```
 
 ## Verify Setup

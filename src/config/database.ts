@@ -40,19 +40,13 @@ export const initializeDatabase = async (): Promise<void> => {
     `);
 
     // Create sessions table for express-session storage
-    await pool.query(`
+     await pool.query(`
       CREATE TABLE IF NOT EXISTS session (
-        sid VARCHAR NOT NULL COLLATE "default",
+        sid VARCHAR PRIMARY KEY NOT NULL COLLATE "default",
         sess JSON NOT NULL,
         expire TIMESTAMP(6) NOT NULL
       )
       WITH (OIDS=FALSE);
-    `);
-
-    await pool.query(`
-      ALTER TABLE session 
-      ADD CONSTRAINT session_pkey 
-      PRIMARY KEY (sid) NOT DEFERRABLE INITIALLY IMMEDIATE;
     `);
 
     // Create index on expire column for better performance
