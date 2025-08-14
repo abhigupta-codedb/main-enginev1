@@ -79,9 +79,6 @@ app.use('/auth', authRoutes);
 // User management routes
 app.use('/api/users', userRoutes);
 
-// User management routes
-app.use('/api/users', userRoutes);
-
 // Protected route example - requires authentication
 app.get('/api/protected', requireAuth, (req: Request, res: Response) => {
   res.json({
