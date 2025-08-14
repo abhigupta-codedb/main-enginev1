@@ -15,9 +15,11 @@ A Node.js server built with Express and TypeScript.
 - ✅ Error handling middleware
 - ✅ Environment configuration
 - ✅ Google OAuth 2.0 Authentication
-- ✅ Session management
+- ✅ Session management with PostgreSQL
 - ✅ JWT token generation
 - ✅ Protected routes
+- ✅ PostgreSQL database integration
+- ✅ User management system
 
 ## Getting Started
 
@@ -25,6 +27,7 @@ A Node.js server built with Express and TypeScript.
 
 - Node.js (v16 or higher)
 - npm or yarn
+- PostgreSQL (v12 or higher)
 
 ### Installation
 

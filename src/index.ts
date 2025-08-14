@@ -10,6 +10,13 @@ import session from 'express-session';
 import path from 'path';
 import passport from './config/passport';
 import authRoutes, { requireAuth } from './routes/auth';
+import userRoutes from './routes/users';
+import { initializeDatabase } from './config/database';
+import { UserModel } from './models/User';
+
+// PostgreSQL session store
+const pgSession = require('connect-pg-simple')(session);
+const pool = require('./config/database').default;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,8 +28,12 @@ app.use(morgan('combined')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
-// Session configuration
+// Session configuration with PostgreSQL store
 app.use(session({
+  store: new pgSession({
+    pool: pool,
+    tableName: 'session'
+  }),
   secret: process.env.SESSION_SECRET || 'fallback-secret-key',
   resave: false,
   saveUninitialized: false,
@@ -65,15 +76,11 @@ app.get('/login', (req: Request, res: Response) => {
 // Authentication routes
 app.use('/auth', authRoutes);
 
-// API routes example
-app.get('/api/users', (req: Request, res: Response) => {
-  // Mock data - replace with actual database queries
-  const users = [
-    { id: 1, name: 'John Doe', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com' }
-  ];
-  res.json(users);
-});
+// User management routes
+app.use('/api/users', userRoutes);
+
+// User management routes
+app.use('/api/users', userRoutes);
 
 // Protected route example - requires authentication
 app.get('/api/protected', requireAuth, (req: Request, res: Response) => {
@@ -84,7 +91,8 @@ app.get('/api/protected', requireAuth, (req: Request, res: Response) => {
   });
 });
 
-app.post('/api/users', (req: Request, res: Response) => {
+// Legacy route - create simple data (not related to user management)
+app.post('/api/data', (req: Request, res: Response) => {
   const { name, email } = req.body;
   
   // Basic validation
@@ -95,14 +103,14 @@ app.post('/api/users', (req: Request, res: Response) => {
   }
   
   // Mock response - replace with actual database insertion
-  const newUser = {
+  const newData = {
     id: Date.now(),
     name,
     email,
     createdAt: new Date().toISOString()
   };
   
-  res.status(201).json(newUser);
+  res.status(201).json(newData);
 });
 
 // 404 handler
@@ -122,11 +130,25 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Start server with database initialization
+const startServer = async () => {
+  try {
+    // Initialize database tables
+    await initializeDatabase();
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+      console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🗄️  Database: PostgreSQL connected`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 export default app;
