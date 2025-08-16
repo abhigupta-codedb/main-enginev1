@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import { UserModel } from '../models/User';
+import { UserProfileModel } from '../models/UserProfile';
+import { RecipientProfileModel } from '../models/RecipientProfile';
 import { requireAuth } from './auth';
 
 const router = express.Router();
@@ -50,56 +52,321 @@ router.put('/me', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Get user by ID (admin only - for now just requires auth)
-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+// === EXTENDED PROFILE ENDPOINTS ===
+
+// Get complete user profile with approvers
+router.get('/profile/complete', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const user = await UserModel.findByGoogleId(id);
+    const userId = req.user!.id;
+    const completeProfile = await UserProfileModel.getCompleteProfile(userId);
     
-    if (!user) {
+    if (!completeProfile) {
       return res.status(404).json({
-        error: 'User not found'
+        error: 'Profile not found'
       });
     }
 
-    res.json(user);
+    res.json(completeProfile);
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('Error fetching complete profile:', error);
     res.status(500).json({
-      error: 'Failed to fetch user',
+      error: 'Failed to fetch complete profile',
       message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
     });
   }
 });
 
-// Delete user (admin only - for now just requires auth)
-router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+// Create/Update extended profile
+router.put('/profile/extended', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const currentUserId = req.user!.id;
-    
-    // Prevent users from deleting themselves
-    if (id === currentUserId) {
+    const userId = req.user!.id;
+    const {
+      age,
+      contactNumber1,
+      contactNumber2,
+      instagramHandle,
+      linkedinProfile,
+      twitterHandle,
+      facebookProfile
+    } = req.body;
+
+    // Basic validation
+    if (!contactNumber1) {
       return res.status(400).json({
-        error: 'Cannot delete your own account'
+        error: 'Primary contact number is required'
       });
     }
 
-    const deleted = await UserModel.delete(id);
+    if (age && (age < 13 || age > 120)) {
+      return res.status(400).json({
+        error: 'Age must be between 13 and 120'
+      });
+    }
+
+    const updatedProfile = await UserProfileModel.upsertProfile(userId, {
+      age,
+      contactNumber1,
+      contactNumber2,
+      instagramHandle,
+      linkedinProfile,
+      twitterHandle,
+      facebookProfile
+    });
+
+    res.json({
+      message: 'Extended profile updated successfully',
+      profile: updatedProfile
+    });
+  } catch (error) {
+    console.error('Error updating extended profile:', error);
+    res.status(500).json({
+      error: 'Failed to update extended profile',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Add approver
+router.post('/profile/approvers', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      approverName,
+      approverEmail,
+      approverContactNumber1,
+      approverContactNumber2,
+      approverRelationship,
+      approverInstagram,
+      approverLinkedin,
+      approverTwitter,
+      approverFacebook,
+    } = req.body;
+
+    // Validation
+    if (!approverName || !approverEmail) {
+      return res.status(400).json({
+        error: 'Approver name and email are required'
+      });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(approverEmail)) {
+      return res.status(400).json({
+        error: 'Invalid email format'
+      });
+    }
+
+    const newApprover = await UserProfileModel.addApprover({
+      userId,
+      approverName,
+      approverEmail,
+      approverContactNumber1,
+      approverContactNumber2,
+      approverRelationship,
+      approverInstagram,
+      approverLinkedin,
+      approverTwitter,
+      approverFacebook
+    });
+
+    res.status(201).json({
+      message: 'Approver added successfully',
+      approver: newApprover
+    });
+  } catch (error) {
+    console.error('Error adding approver:', error);
+    res.status(500).json({
+      error: 'Failed to add approver',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Update approver
+router.put('/profile/approvers/:approverId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { approverId } = req.params;
+    const approverIdInt = parseInt(approverId);
     
-    if (!deleted) {
+    if (isNaN(approverIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid approver ID'
+      });
+    }
+
+    const updatedApprover = await UserProfileModel.updateApprover(approverIdInt, req.body);
+    
+    if (!updatedApprover) {
       return res.status(404).json({
-        error: 'User not found'
+        error: 'Approver not found'
       });
     }
 
     res.json({
-      message: 'User deleted successfully'
+      message: 'Approver updated successfully',
+      approver: updatedApprover
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('Error updating approver:', error);
     res.status(500).json({
-      error: 'Failed to delete user',
+      error: 'Failed to update approver',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Delete approver
+router.delete('/profile/approvers/:approverId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { approverId } = req.params;
+    const approverIdInt = parseInt(approverId);
+    
+    if (isNaN(approverIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid approver ID'
+      });
+    }
+
+    const deleted = await UserProfileModel.deleteApprover(userId, approverIdInt);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'Approver not found'
+      });
+    }
+
+    res.json({
+      message: 'Approver deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting approver:', error);
+    res.status(500).json({
+      error: 'Failed to delete approver',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Add recipient profile
+router.post('/profile/recipients', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      recipientName,
+      recipientEmail,
+      recipientContactNumber1,
+      recipientContactNumber2,
+      recipientRelationship,
+      recipientInstagram,
+      recipientLinkedin,
+      recipientTwitter,
+      recipientFacebook
+    } = req.body;
+
+    // Validation
+    if (!recipientName || !recipientEmail) {
+      return res.status(400).json({
+        error: 'Recipient name and email are required'
+      });
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipientEmail)) {
+      return res.status(400).json({
+        error: 'Invalid email format'
+      });
+    }
+
+    const newRecipient = await RecipientProfileModel.addRecipient({
+      userId,
+      recipientName,
+      recipientEmail,
+      recipientContactNumber1,
+      recipientContactNumber2,
+      recipientRelationship,
+      recipientInstagram,
+      recipientLinkedin,
+      recipientTwitter,
+      recipientFacebook
+    });
+
+    res.status(201).json({
+      message: 'Recipient added successfully',
+      recipient: newRecipient
+    });
+  } catch (error) {
+    console.error('Error adding recipient:', error);
+    res.status(500).json({
+      error: 'Failed to add recipient',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Update recipient profile
+router.put('/profile/recipients/:recipientId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { recipientId } = req.params;
+    const recipientIdInt = parseInt(recipientId);
+    
+    if (isNaN(recipientIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid recipient ID'
+      });
+    }
+
+    const updatedRecipient = await RecipientProfileModel.updateRecipient(recipientIdInt, req.body);
+    
+    if (!updatedRecipient) {
+      return res.status(404).json({
+        error: 'Recipient not found'
+      });
+    }
+
+    res.json({
+      message: 'Recipient updated successfully',
+      recipient: updatedRecipient
+    });
+  } catch (error) {
+    console.error('Error updating recipient:', error);
+    res.status(500).json({
+      error: 'Failed to update recipient',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Delete recipient profile
+router.delete('/profile/recipients/:recipientId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { recipientId } = req.params;
+    const recipientIdInt = parseInt(recipientId);
+    
+    if (isNaN(recipientIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid recipient ID'
+      });
+    }
+
+    const deleted = await RecipientProfileModel.deleteRecipient(userId, recipientIdInt);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'Recipient not found'
+      });
+    }
+
+    res.json({
+      message: 'Recipient deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting recipient:', error);
+    res.status(500).json({
+      error: 'Failed to delete recipient',
       message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
     });
   }

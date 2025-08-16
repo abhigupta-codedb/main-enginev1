@@ -54,6 +54,65 @@ export const initializeDatabase = async (): Promise<void> => {
       CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
     `);
 
+    // Create extended user profile tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        age INTEGER,
+        contact_number_1 VARCHAR(20),
+        contact_number_2 VARCHAR(20),
+        instagram_handle VARCHAR(100),
+        linkedin_profile VARCHAR(255),
+        twitter_handle VARCHAR(100),
+        facebook_profile VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_approvers (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        approver_name VARCHAR(255) NOT NULL,
+        approver_email VARCHAR(255) NOT NULL,
+        approver_contact_number_1 VARCHAR(20),
+        approver_contact_number_2 VARCHAR(20),
+        approver_relationship VARCHAR(100),
+        approver_instagram VARCHAR(100),
+        approver_linkedin VARCHAR(255),
+        approver_twitter VARCHAR(100),
+        approver_facebook VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_recipients (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recipient_name VARCHAR(255) NOT NULL,
+        recipient_email VARCHAR(255) NOT NULL,
+        recipient_contact_number_1 VARCHAR(20),
+        recipient_contact_number_2 VARCHAR(20),
+        recipient_relationship VARCHAR(100),
+        recipient_instagram VARCHAR(100),
+        recipient_linkedin VARCHAR(255),
+        recipient_twitter VARCHAR(100),
+        recipient_facebook VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_approvers_user_id ON user_approvers(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_approvers_email ON user_approvers(approver_email)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_recipients_user_id ON user_recipients(user_id)`);
+
     console.log('✅ Database tables initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing database:', error);
