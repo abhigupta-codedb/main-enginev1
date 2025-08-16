@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { UserModel } from '../models/User';
 import { UserProfileModel } from '../models/UserProfile';
 import { RecipientProfileModel } from '../models/RecipientProfile';
+import { NotesModel } from '../models/NotesModel';
 import { requireAuth } from './auth';
 
 const router = express.Router();
@@ -367,6 +368,207 @@ router.delete('/profile/recipients/:recipientId', requireAuth, async (req: Reque
     console.error('Error deleting recipient:', error);
     res.status(500).json({
       error: 'Failed to delete recipient',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// === NOTES MANAGEMENT ENDPOINTS ===
+
+// Get all notes for current user
+router.get('/notes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const notes = await NotesModel.getNotesWithRecipients(userId);
+    
+    res.json({
+      message: 'Notes retrieved successfully',
+      notes: notes
+    });
+  } catch (error) {
+    console.error('Error fetching notes:', error);
+    res.status(500).json({
+      error: 'Failed to fetch notes',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Add new note
+router.post('/notes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      note,
+      attachment,
+      recipientIds
+    } = req.body;
+
+    // Validation
+    if (!note || note.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Note content is required'
+      });
+    }
+
+    if (note.length > 10000) {
+      return res.status(400).json({
+        error: 'Note content is too long (maximum 10000 characters)'
+      });
+    }
+
+    if (recipientIds && !Array.isArray(recipientIds)) {
+      return res.status(400).json({
+        error: 'recipientIds must be an array'
+      });
+    }
+
+    const newNote = await NotesModel.addNote({
+      userId,
+      note: note.trim(),
+      attachment,
+      recipientIds
+    });
+
+    res.status(201).json({
+      message: 'Note added successfully',
+      note: newNote
+    });
+  } catch (error) {
+    console.error('Error adding note:', error);
+    res.status(500).json({
+      error: 'Failed to add note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Update existing note
+router.put('/notes/:noteId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { noteId } = req.params;
+    const userId = req.user!.id;
+    const noteIdInt = parseInt(noteId);
+    
+    if (isNaN(noteIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid note ID'
+      });
+    }
+
+    const {
+      note,
+      attachment,
+      recipientIds
+    } = req.body;
+
+    // Validation
+    if (note !== undefined && (!note || note.trim().length === 0)) {
+      return res.status(400).json({
+        error: 'Note content cannot be empty'
+      });
+    }
+
+    if (note !== undefined && note.length > 10000) {
+      return res.status(400).json({
+        error: 'Note content is too long (maximum 10000 characters)'
+      });
+    }
+
+    if (recipientIds !== undefined && !Array.isArray(recipientIds)) {
+      return res.status(400).json({
+        error: 'recipientIds must be an array'
+      });
+    }
+
+    const updateData: any = {};
+    if (note !== undefined) updateData.note = note.trim();
+    if (attachment !== undefined) updateData.attachment = attachment;
+    if (recipientIds !== undefined) updateData.recipientIds = recipientIds;
+
+    const updatedNote = await NotesModel.updateNote(noteIdInt, userId, updateData);
+    
+    if (!updatedNote) {
+      return res.status(404).json({
+        error: 'Note not found'
+      });
+    }
+
+    res.json({
+      message: 'Note updated successfully',
+      note: updatedNote
+    });
+  } catch (error) {
+    console.error('Error updating note:', error);
+    res.status(500).json({
+      error: 'Failed to update note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Delete note
+router.delete('/notes/:noteId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { noteId } = req.params;
+    const userId = req.user!.id;
+    const noteIdInt = parseInt(noteId);
+    
+    if (isNaN(noteIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid note ID'
+      });
+    }
+
+    const deleted = await NotesModel.deleteNote(noteIdInt, userId);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'Note not found'
+      });
+    }
+
+    res.json({
+      message: 'Note deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting note:', error);
+    res.status(500).json({
+      error: 'Failed to delete note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Get single note by ID
+router.get('/notes/:noteId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { noteId } = req.params;
+    const userId = req.user!.id;
+    const noteIdInt = parseInt(noteId);
+    
+    if (isNaN(noteIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid note ID'
+      });
+    }
+
+    const note = await NotesModel.getNoteById(noteIdInt, userId);
+    
+    if (!note) {
+      return res.status(404).json({
+        error: 'Note not found'
+      });
+    }
+
+    res.json({
+      message: 'Note retrieved successfully',
+      note: note
+    });
+  } catch (error) {
+    console.error('Error fetching note:', error);
+    res.status(500).json({
+      error: 'Failed to fetch note',
       message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
     });
   }

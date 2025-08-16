@@ -71,6 +71,15 @@ export interface CompleteUserProfile {
   user: User;
   profile?: UserProfile;
   approvers: UserApprover[];
+  notes?: Array<{
+    id: number;
+    note: string;
+    attachment?: string;
+    recipientIds?: number[];
+    recipients?: UserRecipient[];
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
 }
 
 export interface AuthenticatedRequest extends Express.Request {

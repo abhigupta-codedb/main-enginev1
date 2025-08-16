@@ -1,5 +1,6 @@
 import pool from '../config/database';
 import { UserProfile, UserApprover, CompleteUserProfile } from '../types/auth';
+import { NotesModel } from './NotesModel';
 
 export class UserProfileModel {
   // Get complete user profile with approvers
@@ -26,6 +27,9 @@ export class UserProfileModel {
         ORDER BY is_primary DESC, created_at ASC
       `;
       const approversResult = await pool.query(approversQuery, [userId]);
+
+      // Get notes with recipients
+      const notes = await NotesModel.getNotesWithRecipients(userId);
 
       return {
         user: {
@@ -64,6 +68,15 @@ export class UserProfileModel {
           approverFacebook: row.approver_facebook,
           createdAt: row.created_at,
           updatedAt: row.updated_at
+        })),
+        notes: notes.map(note => ({
+          id: note.id,
+          note: note.note,
+          attachment: note.attachment,
+          recipientIds: note.recipientIds,
+          recipients: note.recipients,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt
         }))
       };
     } catch (error) {

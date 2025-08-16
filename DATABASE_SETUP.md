@@ -38,6 +38,9 @@ psql -U main_user -d main_enginev1 -h localhost -f database/schema.sql
 
 # Run extended schema (creates user profiles, approvers, and recipients tables)
 psql -U main_user -d main_enginev1 -h localhost -f database/extended_schema.sql
+
+# Run notes schema (creates user notes table with recipient associations)
+psql -U main_user -d main_enginev1 -h localhost -f database/notes_schema.sql
 ```
 
 ### Option 2: Using Docker
@@ -61,6 +64,10 @@ docker exec -i main-engine-postgres psql -U main_user -d main_enginev1 < databas
 
 # Run extended schema
 docker exec -i main-engine-postgres psql -U main_user -d main_enginev1 < database/extended_schema.sql
+
+# Run notes schema
+
+docker exec -i main-engine-postgres psql -U main_user -d main_enginev1 < database/notes_schema.sql
 ```
 
 ### Option 3: Using pgAdmin
@@ -106,6 +113,10 @@ The application creates these tables:
 - **user_profiles**: Stores extended user profile information
 - **user_approvers**: Stores multiple approvers per user
 - **user_recipients**: Stores multiple recipients per user
+
+### Notes Tables (from `database/notes_schema.sql`):
+
+- **user_notes**: Stores user notes with attachments and associated recipients
 
 ### Table Structures:
 
@@ -170,6 +181,18 @@ recipient_instagram VARCHAR(100),
 recipient_linkedin VARCHAR(255),
 recipient_twitter VARCHAR(100),
 recipient_facebook VARCHAR(255),
+created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+```
+
+#### **user_notes** Table:
+
+```sql
+id SERIAL PRIMARY KEY,
+user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+note TEXT NOT NULL,
+attachment TEXT, -- URL/path to image attachment
+recipient_ids INTEGER[], -- Array of recipient IDs from user_recipients table
 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 ```
@@ -301,6 +324,14 @@ The application provides the following REST API endpoints:
 - `PUT /api/users/profile/recipients/:recipientId` - Update existing recipient
 - `DELETE /api/users/profile/recipients/:recipientId` - Delete recipient
 
+### **Notes Management Endpoints:**
+
+- `GET /api/users/notes` - Get all notes for current user
+- `POST /api/users/notes` - Add new note
+- `GET /api/users/notes/:noteId` - Get single note by ID
+- `PUT /api/users/notes/:noteId` - Update existing note
+- `DELETE /api/users/notes/:noteId` - Delete note
+
 ### **Example API Requests:**
 
 #### Create Extended Profile:
@@ -343,6 +374,29 @@ POST /api/users/profile/recipients
   "recipientInstagram": "@johnjr"
 }
 ```
+
+#### Add Note:
+
+```json
+POST /api/users/notes
+{
+  "note": "Important reminder about project deadline",
+  "attachment": "https://example.com/deadline-reminder.png",
+  "recipientIds": [1, 2, 3]
+}
+```
+
+#### Update Note:
+
+```json
+PUT /api/users/notes/1
+{
+  "note": "Updated reminder with more details",
+  "recipientIds": [1, 2]
+}
+```
+
+**Note**: When retrieving notes via `GET /api/users/notes` or `GET /api/users/profile/complete`, each note will include complete recipient information with all fields (name, email, contact numbers, social media handles, etc.) for each recipient ID specified.
 
 ## Business Rules & Constraints
 
