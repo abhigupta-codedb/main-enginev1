@@ -117,6 +117,7 @@ The application creates these tables:
 ### Notes Tables (from `database/notes_schema.sql`):
 
 - **user_notes**: Stores user notes with attachments and associated recipients
+- **fixed_date_notes**: Stores scheduled notes for future delivery with status tracking
 
 ### Table Structures:
 
@@ -193,6 +194,19 @@ user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 note TEXT NOT NULL,
 attachment TEXT, -- URL/path to image attachment
 recipient_ids INTEGER[], -- Array of recipient IDs from user_recipients table
+created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+```
+
+#### **fixed_date_notes** Table:
+
+```sql
+id SERIAL PRIMARY KEY,
+user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+notes_id INTEGER NOT NULL REFERENCES user_notes(id) ON DELETE CASCADE,
+delivery_date TIMESTAMP WITH TIME ZONE NOT NULL,
+status VARCHAR(50) DEFAULT 'scheduled', -- 'scheduled', 'delivered', 'cancelled', 'failed'
+deletion_date TIMESTAMP WITH TIME ZONE,
 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 ```
@@ -332,6 +346,16 @@ The application provides the following REST API endpoints:
 - `PUT /api/users/notes/:noteId` - Update existing note
 - `DELETE /api/users/notes/:noteId` - Delete note
 
+### **Fixed Date Notes Management Endpoints:**
+
+- `GET /api/users/fixed-date-notes` - Get all fixed date notes for current user
+- `GET /api/users/fixed-date-notes?withDetails=true` - Get fixed date notes with note details
+- `POST /api/users/fixed-date-notes` - Create new fixed date note (save for future delivery)
+- `GET /api/users/fixed-date-notes/:fixedDateNoteId` - Get single fixed date note by ID
+- `PUT /api/users/fixed-date-notes/:fixedDateNoteId` - Update existing fixed date note
+- `DELETE /api/users/fixed-date-notes/:fixedDateNoteId` - Delete fixed date note
+- `GET /api/users/fixed-date-notes/status/:status` - Get fixed date notes by status (scheduled/delivered/cancelled/failed)
+
 ### **Example API Requests:**
 
 #### Create Extended Profile:
@@ -398,6 +422,27 @@ PUT /api/users/notes/1
 
 **Note**: When retrieving notes via `GET /api/users/notes` or `GET /api/users/profile/complete`, each note will include complete recipient information with all fields (name, email, contact numbers, social media handles, etc.) for each recipient ID specified.
 
+#### Create Fixed Date Note:
+
+```json
+POST /api/users/fixed-date-notes
+{
+  "notesId": 1,
+  "deliveryDate": "2025-12-25T09:00:00Z",
+  "status": "scheduled"
+}
+```
+
+#### Update Fixed Date Note Status:
+
+```json
+PUT /api/users/fixed-date-notes/1
+{
+  "status": "delivered",
+  "deletionDate": "2025-12-26T00:00:00Z"
+}
+```
+
 ## Business Rules & Constraints
 
 1. **Minimum Approvers**: Each user should have at least 2 approvers (enforced in application logic)
@@ -407,8 +452,15 @@ PUT /api/users/notes/1
    - Extended Profile: `contactNumber1` is required
    - Approvers: `approverName` and `approverEmail` are required
    - Recipients: `recipientName` and `recipientEmail` are required
-5. **Automatic Timestamps**: All profile tables have automatic `created_at` and `updated_at` timestamps with triggers
-6. **Cascade Deletion**: When a user is deleted, all related profiles, approvers, and recipients are automatically deleted
+   - Fixed Date Notes: `notesId` and `deliveryDate` are required
+5. **Date Constraints**:
+   - Fixed Date Notes: `deliveryDate` must be in the future when creating or updating
+   - Status values for Fixed Date Notes: 'scheduled', 'delivered', 'cancelled', 'failed'
+6. **Data Ownership**:
+   - Fixed Date Notes can only reference notes that belong to the same user
+   - Users can only access their own notes and fixed date notes
+7. **Automatic Timestamps**: All profile tables have automatic `created_at` and `updated_at` timestamps with triggers
+8. **Cascade Deletion**: When a user is deleted, all related profiles, approvers, recipients, notes, and fixed date notes are automatically deleted
 
 ## Database Concepts Explained
 

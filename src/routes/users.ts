@@ -3,6 +3,7 @@ import { UserModel } from '../models/User';
 import { UserProfileModel } from '../models/UserProfile';
 import { RecipientProfileModel } from '../models/RecipientProfile';
 import { NotesModel } from '../models/NotesModel';
+import { FixedDateNotesModel } from '../models/FixedDateNotesModel';
 import { requireAuth } from './auth';
 
 const router = express.Router();
@@ -569,6 +570,267 @@ router.get('/notes/:noteId', requireAuth, async (req: Request, res: Response) =>
     console.error('Error fetching note:', error);
     res.status(500).json({
       error: 'Failed to fetch note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// === FIXED DATE NOTES MANAGEMENT ENDPOINTS ===
+
+// Get all fixed date notes for current user
+router.get('/fixed-date-notes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { withDetails } = req.query;
+    
+    let fixedDateNotes;
+    if (withDetails === 'true') {
+      fixedDateNotes = await FixedDateNotesModel.getFixedDateNotesWithNoteDetails(userId);
+    } else {
+      fixedDateNotes = await FixedDateNotesModel.getFixedDateNotesByUserId(userId);
+    }
+    
+    res.json({
+      message: 'Fixed date notes retrieved successfully',
+      fixedDateNotes: fixedDateNotes
+    });
+  } catch (error) {
+    console.error('Error fetching fixed date notes:', error);
+    res.status(500).json({
+      error: 'Failed to fetch fixed date notes',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Create new fixed date note (save for future delivery)
+router.post('/fixed-date-notes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      notesId,
+      deliveryDate,
+      status
+    } = req.body;
+
+    // Validation
+    if (!notesId || !deliveryDate) {
+      return res.status(400).json({
+        error: 'Notes ID and delivery date are required'
+      });
+    }
+
+    const notesIdInt = parseInt(notesId);
+    if (isNaN(notesIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid notes ID'
+      });
+    }
+
+    const deliveryDateTime = new Date(deliveryDate);
+    if (isNaN(deliveryDateTime.getTime())) {
+      return res.status(400).json({
+        error: 'Invalid delivery date format'
+      });
+    }
+
+    if (deliveryDateTime <= new Date()) {
+      return res.status(400).json({
+        error: 'Delivery date must be in the future'
+      });
+    }
+
+    const newFixedDateNote = await FixedDateNotesModel.createFixedDateNote({
+      userId,
+      notesId: notesIdInt,
+      deliveryDate: deliveryDateTime,
+      status
+    });
+
+    res.status(201).json({
+      message: 'Fixed date note created successfully',
+      fixedDateNote: newFixedDateNote
+    });
+  } catch (error) {
+    console.error('Error creating fixed date note:', error);
+    res.status(500).json({
+      error: 'Failed to create fixed date note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Update existing fixed date note
+router.put('/fixed-date-notes/:fixedDateNoteId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { fixedDateNoteId } = req.params;
+    const userId = req.user!.id;
+    const fixedDateNoteIdInt = parseInt(fixedDateNoteId);
+    
+    if (isNaN(fixedDateNoteIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid fixed date note ID'
+      });
+    }
+
+    const {
+      deliveryDate,
+      status,
+      deletionDate
+    } = req.body;
+
+    const updateData: any = {};
+    
+    if (deliveryDate !== undefined) {
+      const deliveryDateTime = new Date(deliveryDate);
+      if (isNaN(deliveryDateTime.getTime())) {
+        return res.status(400).json({
+          error: 'Invalid delivery date format'
+        });
+      }
+      updateData.deliveryDate = deliveryDateTime;
+    }
+
+    if (status !== undefined) {
+      if (!['scheduled', 'delivered', 'cancelled', 'failed'].includes(status)) {
+        return res.status(400).json({
+          error: 'Invalid status. Must be one of: scheduled, delivered, cancelled, failed'
+        });
+      }
+      updateData.status = status;
+    }
+
+    if (deletionDate !== undefined) {
+      if (deletionDate) {
+        const deletionDateTime = new Date(deletionDate);
+        if (isNaN(deletionDateTime.getTime())) {
+          return res.status(400).json({
+            error: 'Invalid deletion date format'
+          });
+        }
+        updateData.deletionDate = deletionDateTime;
+      } else {
+        updateData.deletionDate = null;
+      }
+    }
+
+    const updatedFixedDateNote = await FixedDateNotesModel.updateFixedDateNote(
+      fixedDateNoteIdInt, 
+      userId, 
+      updateData
+    );
+    
+    if (!updatedFixedDateNote) {
+      return res.status(404).json({
+        error: 'Fixed date note not found'
+      });
+    }
+
+    res.json({
+      message: 'Fixed date note updated successfully',
+      fixedDateNote: updatedFixedDateNote
+    });
+  } catch (error) {
+    console.error('Error updating fixed date note:', error);
+    res.status(500).json({
+      error: 'Failed to update fixed date note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Delete fixed date note
+router.delete('/fixed-date-notes/:fixedDateNoteId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { fixedDateNoteId } = req.params;
+    const userId = req.user!.id;
+    const fixedDateNoteIdInt = parseInt(fixedDateNoteId);
+    
+    if (isNaN(fixedDateNoteIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid fixed date note ID'
+      });
+    }
+
+    const deleted = await FixedDateNotesModel.deleteFixedDateNote(fixedDateNoteIdInt, userId);
+    
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'Fixed date note not found'
+      });
+    }
+
+    res.json({
+      message: 'Fixed date note deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting fixed date note:', error);
+    res.status(500).json({
+      error: 'Failed to delete fixed date note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Get single fixed date note by ID
+router.get('/fixed-date-notes/:fixedDateNoteId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { fixedDateNoteId } = req.params;
+    const userId = req.user!.id;
+    const fixedDateNoteIdInt = parseInt(fixedDateNoteId);
+    
+    if (isNaN(fixedDateNoteIdInt)) {
+      return res.status(400).json({
+        error: 'Invalid fixed date note ID'
+      });
+    }
+
+    const fixedDateNote = await FixedDateNotesModel.getFixedDateNoteById(fixedDateNoteIdInt, userId);
+    
+    if (!fixedDateNote) {
+      return res.status(404).json({
+        error: 'Fixed date note not found'
+      });
+    }
+
+    res.json({
+      message: 'Fixed date note retrieved successfully',
+      fixedDateNote: fixedDateNote
+    });
+  } catch (error) {
+    console.error('Error fetching fixed date note:', error);
+    res.status(500).json({
+      error: 'Failed to fetch fixed date note',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// Get fixed date notes by status
+router.get('/fixed-date-notes/status/:status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { status } = req.params;
+    const userId = req.user!.id;
+
+    if (!['scheduled', 'delivered', 'cancelled', 'failed'].includes(status)) {
+      return res.status(400).json({
+        error: 'Invalid status. Must be one of: scheduled, delivered, cancelled, failed'
+      });
+    }
+
+    const fixedDateNotes = await FixedDateNotesModel.getFixedDateNotesByStatus(
+      userId, 
+      status as 'scheduled' | 'delivered' | 'cancelled' | 'failed'
+    );
+
+    res.json({
+      message: `Fixed date notes with status '${status}' retrieved successfully`,
+      fixedDateNotes: fixedDateNotes
+    });
+  } catch (error) {
+    console.error('Error fetching fixed date notes by status:', error);
+    res.status(500).json({
+      error: 'Failed to fetch fixed date notes by status',
       message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'Internal server error'
     });
   }
