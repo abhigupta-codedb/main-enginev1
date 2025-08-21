@@ -8,7 +8,10 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "watch": "tsc -w",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "test:delivery": "ts-node src/utils/testRunner.ts",
+    "test:channels": "ts-node src/utils/testRunner.ts channels",
+    "test:scheduled": "ts-node src/utils/testRunner.ts scheduled"
   },
   "keywords": [
     "node",
@@ -18,30 +21,38 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
+    "bull": "^4.16.5",
+    "connect-pg-simple": "^9.0.1",
     "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
     "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.5",
     "passport": "^0.6.0",
     "passport-google-oauth20": "^2.0.0",
-    "express-session": "^1.17.3",
-    "jsonwebtoken": "^9.0.2",
-    "dotenv": "^16.3.1",
     "pg": "^8.11.3",
-    "connect-pg-simple": "^9.0.1"
+    "redis": "^5.8.1",
+    "twilio": "^5.8.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.17",
+    "@types/bull": "^3.15.9",
     "@types/cors": "^2.8.13",
-    "@types/morgan": "^1.9.4",
-    "@types/node": "^20.4.5",
-    "typescript": "^5.1.6",
-    "ts-node-dev": "^2.0.0",
-    "rimraf": "^5.0.1",
-    "@types/passport": "^1.0.12",
-    "@types/passport-google-oauth20": "^2.0.11",
+    "@types/express": "^4.17.17",
     "@types/express-session": "^1.17.7",
     "@types/jsonwebtoken": "^9.0.2",
-    "@types/pg": "^8.10.2"
+    "@types/morgan": "^1.9.4",
+    "@types/node": "^20.4.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^7.0.0",
+    "@types/passport": "^1.0.12",
+    "@types/passport-google-oauth20": "^2.0.11",
+    "@types/pg": "^8.10.2",
+    "rimraf": "^5.0.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.1.6"
   }
 }

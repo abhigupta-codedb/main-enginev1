@@ -11,8 +11,10 @@ import path from 'path';
 import passport from './config/passport';
 import authRoutes, { requireAuth } from './routes/auth';
 import userRoutes from './routes/users';
+import adminRoutes from './routes/admin';
 import { initializeDatabase } from './config/database';
 import { UserModel } from './models/User';
+import { ServiceManager } from './services/ServiceManager';
 
 // PostgreSQL session store
 const pgSession = require('connect-pg-simple')(session);
@@ -79,6 +81,9 @@ app.use('/auth', authRoutes);
 // User management routes
 app.use('/api/users', userRoutes);
 
+// Admin routes (for service management)
+app.use('/api/admin', adminRoutes);
+
 // Protected route example - requires authentication
 app.get('/api/protected', requireAuth, (req: Request, res: Response) => {
   res.json({
@@ -133,11 +138,18 @@ const startServer = async () => {
     // Initialize database tables
     await initializeDatabase();
     
+    // Initialize delivery services
+    console.log('🔧 Initializing delivery services...');
+    await ServiceManager.initialize();
+    
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+      console.log(`🔧 Admin panel available at http://localhost:${PORT}/api/admin/status`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🗄️  Database: PostgreSQL connected`);
+      console.log(`📧 Email service: ${process.env.SMTP_USER ? 'Configured' : 'Development mode'}`);
+      console.log(`📱 SMS service: ${process.env.TWILIO_ACCOUNT_SID ? 'Configured' : 'Development mode'}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
