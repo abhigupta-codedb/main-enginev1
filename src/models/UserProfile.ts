@@ -24,7 +24,7 @@ export class UserProfileModel {
       const approversQuery = `
         SELECT * FROM user_approvers 
         WHERE user_id = $1 
-        ORDER BY is_primary DESC, created_at ASC
+        ORDER BY created_at ASC
       `;
       const approversResult = await pool.query(approversQuery, [userId]);
 
@@ -142,10 +142,9 @@ export class UserProfileModel {
     try {
       const query = `
         INSERT INTO user_approvers (
-          user_id, approver_name, approver_email, approver_phone,
-          approver_relationship, approver_instagram, approver_linkedin,
-          approver_twitter
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          user_id, approver_name, approver_email, approver_contact_number_1, approver_contact_number_2,
+          approver_relationship, approver_instagram, approver_linkedin, approver_twitter, approver_facebook
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
 
