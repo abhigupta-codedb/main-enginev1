@@ -194,7 +194,7 @@ export class FixedDateNotesModel {
   // Get fixed date notes by status
   static async getFixedDateNotesByStatus(
     userId: string, 
-    status: 'scheduled' | 'delivered' | 'cancelled' | 'failed'
+    status: 'scheduled' | 'delivered' | 'cancelled' | 'failed' | 'pending'
   ): Promise<FixedDateNote[]> {
     const query = `
       SELECT * FROM fixed_date_notes 

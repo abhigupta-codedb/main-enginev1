@@ -812,7 +812,7 @@ router.get('/fixed-date-notes/status/:status', requireAuth, async (req: Request,
     const { status } = req.params;
     const userId = req.user!.id;
 
-    if (!['scheduled', 'delivered', 'cancelled', 'failed'].includes(status)) {
+    if (!['scheduled', 'delivered', 'cancelled', 'failed', 'pending'].includes(status.toLowerCase())) {
       return res.status(400).json({
         error: 'Invalid status. Must be one of: scheduled, delivered, cancelled, failed'
       });
@@ -820,7 +820,7 @@ router.get('/fixed-date-notes/status/:status', requireAuth, async (req: Request,
 
     const fixedDateNotes = await FixedDateNotesModel.getFixedDateNotesByStatus(
       userId, 
-      status as 'scheduled' | 'delivered' | 'cancelled' | 'failed'
+      status as 'scheduled' | 'delivered' | 'cancelled' | 'failed' | 'pending'
     );
 
     res.json({
